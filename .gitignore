@@ -219,3 +219,4 @@ __marimo__/
 
 # my dir
 .my_postgres_data
+/src/__pycache__
