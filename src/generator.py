@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 
 
 START_DATE = datetime(day=1, month=7, year=1992)    #первая дата имещеюся в api центрабанка
+#START_DATE = datetime(day=1, month=5, year=2026)
 STANDART_DAYS_STEP = timedelta(days=1)
 NOW_DATA = datetime.now()
 MAX_ITERATION = 10000000

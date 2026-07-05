@@ -1,5 +1,6 @@
 import psycopg2
 import os
+import logging
 
 from psycopg2 import extras
 from dotenv import load_dotenv
@@ -9,9 +10,11 @@ load_dotenv()
 
 class DataBase:
     def __init__(self):
-        self.connection = self._connect() 
-        self.cursor_for_insert = self._create_insert_curcor()
+        self.connection = self._connect()
+        logging.info('Подключение к бд выполнено успешно')
 
+        self.cursor_for_insert = self._create_insert_curcor()
+        logging.info('Курсор для вставки успешно создан')
 
     # Connect to DB
     def _connect(self):
@@ -42,22 +45,28 @@ class DataBase:
 
     
     def add_many_in_db(self, data_list: list[tuple[str, float]]):
-        if not data_list:
-            raise ValueError("Need data in func - add_many_in_db")
+        try:
+            if not data_list:
+                raise ValueError("Need data in func - add_many_in_db")
         
-        sql_query = """
-            INSERT INTO dollar_by_data (d_date, dollar_rate)
-            VALUES %s
-        """
+            sql_query = """
+                INSERT INTO dollar_by_data (d_date, dollar_rate)
+                VALUES %s
+                ON CONFLICT (d_date) DO NOTHING
+            """
 
-        extras.execute_values(
-            self.cursor_for_insert,
-            sql_query,
-            data_list
-        )
-        self.connection.commit()
-
+            extras.execute_values(
+                self.cursor_for_insert,
+                sql_query,
+                data_list
+            )
+            self.connection.commit()
+            logging.info(f'В базу данных {os.getenv("DB_FOR_PROJECT")}, таблицу dollar_by_data успешно произведенна вставка')
         
+        except Exception as e:
+            logging.error(f'Ошибка во множественно вставке в БД - {e}')
+
+
     # Close
     def close(self):
         if hasattr(self, 'cursor_for_insert') and self.cursor_for_insert:
@@ -65,6 +74,8 @@ class DataBase:
 
         if hasattr(self, 'connection') and self.connection:
             self.connection.close()
+
+        logging.info('Соединение с бд закрыто')
         
 
     def __del__(self):
