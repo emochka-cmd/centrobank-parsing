@@ -1,4 +1,4 @@
-from parser import get_xml_content_from_page, get_dollar_rate_async
+from parser import get_rate_from_single_page, get_dollar_rate_async
 import generator
 import db 
 
@@ -14,6 +14,7 @@ from tqdm.asyncio import tqdm_asyncio
 from datetime import datetime
 
 
+# Работа с файлами
 def csv_save(massive: list):
     current_date = datetime.now().strftime('%d.%m.%Y-%H:%M')
 
@@ -88,9 +89,30 @@ def add_data_to_db_with_csv(file_path: str):
     postgres_db.close()
 
    
-async def async_pipeline():
+async def async_pipeline_to_all_data_parse():
     file_path_to_csv = await get_csv_with_dollar_rate()
     add_data_to_db_with_csv(file_path_to_csv)
+
+
+def parse_only_curr_date_and_send_in_db():
+    curr_date = generator.get_now_date()
+    date_str, rate = get_rate_from_single_page(curr_date)
+    
+    date_obj = datetime.strptime(date_str, '%d/%m/%Y')
+
+    if date_obj and rate:
+        date_to_db = datetime.strftime(date_obj, '%Y-%m-%d')
+
+        postgres_db = db.DataBase()
+        postgres_db.add_in_db(
+            date=date_to_db,
+            dollar_rate=rate
+        )
+        logging.info(f'Одна запись добавлена в БД - {date_to_db, rate}')
+        postgres_db.close()
+
+    else: 
+        logging.warning("Нет данных для вставки в БД")    
 
 
 if __name__ == "__main__":
@@ -102,6 +124,7 @@ if __name__ == "__main__":
         datefmt='%Y-%m-%d %H:%M:%S'
     )
 
-    asyncio.run(async_pipeline())
+    #asyncio.run(async_pipeline())
+    parse_only_curr_date_and_send_in_db()
     end = datetime.now() - start
     print(end)

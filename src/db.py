@@ -1,6 +1,7 @@
 import psycopg2
 import os
 import logging
+from datetime import datetime
 
 from psycopg2 import extras
 from dotenv import load_dotenv
@@ -13,8 +14,6 @@ class DataBase:
         self.connection = self._connect()
         logging.info('Подключение к бд выполнено успешно')
 
-        self.cursor_for_insert = self._create_insert_curcor()
-        logging.info('Курсор для вставки успешно создан')
 
     # Connect to DB
     def _connect(self):
@@ -26,24 +25,30 @@ class DataBase:
         )
 
 
-    def _create_insert_curcor(self):
-        return self.connection.cursor()
-
-
     # SQL command
+    # insert command
     def add_in_db(self, date: str , dollar_rate: float):
-        if not date or not dollar_rate:
-            raise ValueError("Need data in func - add_in_db")
+        try:
+            if not date or not dollar_rate:
+                raise ValueError("Need data in func - add_in_db")
 
-        sql_query = """
-            INSERT INTO dollar_by_data (d_date, dollar_rate)
-            VALUES (%s, %s)
-        """
+            sql_query = """
+                INSERT INTO dollar_by_data (d_date, dollar_rate)
+                VALUES (%s, %s)
+                ON CONFLICT (d_date) DO NOTHING
+            """
 
-        self.cursor_for_insert.execute(sql_query, (date, dollar_rate))
-        self.connection.commit()
-
+            with self.connection.cursor() as cursor:
+                cursor.execute(
+                    sql_query, 
+                    (date, dollar_rate)
+                )
+                self.connection.commit()
+        
+        except Exception as e:
+            logging.error(f"Ошибка при единичной вставки в бд - {e}")
     
+
     def add_many_in_db(self, data_list: list[tuple[str, float]]):
         try:
             if not data_list:
@@ -55,23 +60,46 @@ class DataBase:
                 ON CONFLICT (d_date) DO NOTHING
             """
 
-            extras.execute_values(
-                self.cursor_for_insert,
-                sql_query,
-                data_list
-            )
-            self.connection.commit()
-            logging.info(f'В базу данных {os.getenv("DB_FOR_PROJECT")}, таблицу dollar_by_data успешно произведенна вставка')
+            with self.connection.cursor() as cursor:
+                extras.execute_values(
+                    cursor,
+                    sql_query,
+                    data_list
+                )
+                self.connection.commit()
+                logging.info(f'В базу данных {os.getenv("DB_FOR_PROJECT")}, таблицу dollar_by_data успешно произведенна вставка')
         
         except Exception as e:
             logging.error(f'Ошибка во множественно вставке в БД - {e}')
 
 
+    # get data command
+    def get_rate_by_data(self, date: datetime):
+        try:
+            postgres_date = self.get_postgres_type_date(date)
+
+            sql_query = """
+                SELECT d.dollar_rate as rate FROM dollar_by_data as d
+                WHERE d.d_date = %s;
+            """
+
+            with self.connection.cursor() as cursor:
+                cursor.execute(sql_query, (postgres_date, ))
+                result = cursor.fetchone()
+                return result[0] if result else None
+
+        except Exception as e:
+            logging.error(f"Ошибка при обращении к бд за данными - {e}")
+
+
+    # Help command
+    def get_postgres_type_date(self, date):
+        return datetime.strftime(date, '%Y-%m-%d')
+        return None
+
+
     # Close
     def close(self):
-        if hasattr(self, 'cursor_for_insert') and self.cursor_for_insert:
-            self.cursor_for_insert.close()
-
         if hasattr(self, 'connection') and self.connection:
             self.connection.close()
 

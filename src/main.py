@@ -1,0 +1,18 @@
+"""
+Точка входа. Предоставляет CLI для программы.\
+Напишу потом
+"""
+import db
+import generator
+import pipeline
+
+import argparse
+import logging
+
+
+
+logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )

@@ -50,31 +50,35 @@ async def get_dollar_rate_async(session: aiohttp.ClientSession, date_str: str):
     return date_str, None
 
 
-def get_xml_content_from_page(url: str):
+def get_rate_from_single_page(date_str: str):
     """
     Берет синхронно с url нужные данные
     """
-    res = requests.get(url)
+    url = generator.generate_url(date_str)
 
-    if not res.ok:
-        print(f"Не удалость обратиться к url - {url}")
-        return None    
+    try:
+        res = requests.get(url)
+        res.raise_for_status()
+
+        root = ET.fromstring(res.content)
+        value = root.find(f'./Valute[@ID="{DOLLAR_ID}"]')
+
+        if value is None:
+            logging.warning(f'Валюта с ID {DOLLAR_ID} не найдена для {date_str}')
+            return date_str, None
+
+        value_node = value.find('Value')
+        if value_node is None or value_node.text is None:
+            logging.warning(f'Тег Value отсутствует для {date_str}')
+            return date_str, None
+
+        rate = float(value_node.text.replace(',', '.'))
+        return date_str, rate
     
-    root = ET.fromstring(res.content)
-    value = root.find(f'./Valute[@ID="{DOLLAR_ID}"]')
+    except Exception as e:
+        logging.error(f'Данные с url не были спаршены.\nURL - {url}')
 
-    if value is None:
-        print(f"Валюта с ID R01235 не найдена в XML по url - {url}")
-        return None
-
-    value_node = value.find('Value')
-
-    if value_node is None:
-        print(f"Нет значения валюты по url - {url}")
-        return None
-    
-    rate = float(value_node.text.replace(',', '.'))
-    return rate
+    return date_str, None
 
 
 if __name__ == "__main__":
