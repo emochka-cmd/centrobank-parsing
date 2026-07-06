@@ -221,3 +221,4 @@ __marimo__/
 .my_postgres_data
 /src/__pycache__
 data
+*.png
